@@ -20,7 +20,9 @@ export default defineConfig({
     open: false,
     strictPort: false,
     proxy: {
-      '/api': {
+      // 只代理真正的接口路径：'/api' 前缀会把前端路由 /apigate（采集API）
+      // 也转发给后端，页面直接拿到 404 JSON，表现为模块打不开、点不动。
+      '/api/': {
         target: proxyTarget,
         changeOrigin: true,
       },

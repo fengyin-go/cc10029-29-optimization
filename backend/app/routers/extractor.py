@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.schemas import ActionPayload, ActionResult, EntryPayload, PageResult
-from app.services.extractor import ExtractorService
+from app.services.extractor import ExtractorService, csv_cell
 
 router = APIRouter(prefix="/api/extractor", tags=["数据提取"])
 service = ExtractorService()

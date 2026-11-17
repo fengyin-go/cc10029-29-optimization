@@ -72,6 +72,42 @@
       </form>
     </div>
 
+    <section class="receipt-panel">
+      <h3>落地批次回执清单</h3>
+      <p class="page-desc">流程关系导出数据包通过完整校验后在此落地，回执指向具体导出版本，可核对两边差异。</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>回执编号</th><th>数据包</th><th>边界版本</th><th>模式</th><th>节点/边</th><th>结论</th><th>落地时间</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="receipt in receipts" :key="receipt.receipt_id" :data-testid="`receipt-${receipt.receipt_id}`">
+            <td>{{ receipt.receipt_id }}</td>
+            <td>{{ receipt.package_id }}（第 {{ receipt.package_revision }} 版）</td>
+            <td>{{ receipt.flow_version }}</td>
+            <td>{{ receipt.mode }}</td>
+            <td>{{ receipt.node_count }} / {{ receipt.edge_count }}</td>
+            <td>{{ receipt.conclusion }}</td>
+            <td>{{ receipt.created_at }}</td>
+            <td class="row-actions">
+              <button class="link" type="button" :data-testid="`diff-${receipt.receipt_id}`" @click="checkDiff(receipt)">差异核对</button>
+            </td>
+          </tr>
+          <tr v-if="!receipts.length">
+            <td colspan="8" class="empty-state">暂无落地批次回执，可先在采集流程生成导出数据包并落地</td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="diffResult" class="diff-result" :data-testid="`diff-result-${diffResult.receipt_id}`">
+        <strong>{{ diffResult.receipt_id }} 与 {{ diffResult.package_id }}：</strong>
+        <span v-if="diffResult.matched">数据流一致，回执与数据包对得上。</span>
+        <ul v-else>
+          <li v-for="(item, index) in diffResult.differences" :key="index" class="error-text">{{ item }}</li>
+        </ul>
+      </div>
+    </section>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条存储落地记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -100,6 +136,8 @@ const filterFields = columns.slice(0, 3)
 const showCreate = ref(false)
 const creating = ref(false)
 const createValues = ref<Record<string, string>>({})
+const receipts = ref<any[]>([])
+const diffResult = ref<any>(null)
 const stats = computed(() => [
   { label: metricNames[0], value: total.value },
   { label: metricNames[1], value: rows.value.filter((row) => row.status === statuses[1]).length },
@@ -184,5 +222,32 @@ async function reload() {
   }
 }
 
-onMounted(reload)
+async function loadReceipts() {
+  try {
+    const response = await request(`${ENDPOINT}/landing-receipts`)
+    if (!response.ok) return
+    const payload = await response.json()
+    receipts.value = payload.items ?? []
+  } catch (error) { /* 回执清单加载失败不影响存储配置主列表 */ }
+}
+
+async function checkDiff(receipt: any) {
+  errorMessage.value = ''
+  try {
+    const response = await request(`${ENDPOINT}/landing-receipts/${receipt.receipt_id}/diff`)
+    if (!response.ok) throw new Error('差异核对失败，请稍后重试')
+    diffResult.value = await response.json()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '差异核对失败'
+  }
+}
+
+onMounted(() => { reload(); loadReceipts() })
 </script>
+
+<style scoped>
+.receipt-panel { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.receipt-panel h3 { margin: 0 0 4px; font-size: 15px; }
+.diff-result { margin-top: 8px; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.diff-result ul { margin: 4px 0 0; padding-left: 18px; }
+</style>

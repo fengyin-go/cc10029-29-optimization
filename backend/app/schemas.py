@@ -35,6 +35,18 @@ class ActionPayload(BaseModel):
     remark: str | None = None
 
 
+class ExportPackagePayload(BaseModel):
+    """生成流程关系导出数据包的请求：schema_version 区分旧版整包与新版补写。"""
+
+    schema_version: str = "v2"
+
+
+class LandingReceiptPayload(BaseModel):
+    """存储落地读取流程关系导出数据包生成落地批次回执的请求。"""
+
+    package_id: str
+
+
 
 class TargetsiteEntry(BaseModel):
     """目标站点明细结构。"""

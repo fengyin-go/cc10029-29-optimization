@@ -8,6 +8,10 @@ from typing import Any
 
 from app.seed import SEED_ROWS
 
+# 内部数据表（导出数据包、落地回执、修复证据等），不属于业务模块，
+# 概览统计里不展示，避免把数据流内部状态当成业务实体。
+INTERNAL_TABLES = {"flowline_export_packages", "flowline_export_repairs", "storage_landing_receipts"}
+
 
 class Store:
     def __init__(self) -> None:
@@ -17,6 +21,9 @@ class Store:
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
+
+    def business_module_names(self) -> list[str]:
+        return [name for name in self.module_names() if name not in INTERNAL_TABLES]
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
@@ -29,7 +36,7 @@ class Store:
 
     def overview(self) -> dict[str, object]:
         modules: list[dict[str, object]] = []
-        for name in self.module_names():
+        for name in self.business_module_names():
             rows = self.rows(name)
             modules.append({
                 "name": name,

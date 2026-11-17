@@ -1,4 +1,8 @@
-"""存储落地接口：维护存储配置，覆盖提交校验、启用配置、停用配置等动作。"""
+"""存储落地接口：维护存储配置，覆盖提交校验、启用配置、停用配置等动作。
+
+新增落地批次回执接口：读取流程关系导出数据包生成回执，并支持回执与
+数据包的差异核对。
+"""
 from __future__ import annotations
 
 import csv
@@ -7,7 +11,7 @@ import io
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.schemas import ActionPayload, ActionResult, EntryPayload, PageResult
+from app.schemas import ActionPayload, ActionResult, EntryPayload, LandingReceiptPayload, PageResult
 from app.services.storage import StorageService
 
 router = APIRouter(prefix="/api/storage", tags=["存储落地"])
@@ -63,6 +67,29 @@ def export_entries(
     return StreamingResponse(
         iter([output.getvalue()]), media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="storage.csv"'})
+
+
+@router.get("/landing-receipts")
+def list_landing_receipts() -> dict:
+    """落地批次回执清单：流程关系导出数据包的落地结论同步到本模块。"""
+    receipts = service.list_landing_receipts()
+    return {"items": receipts, "total": len(receipts)}
+
+
+@router.post("/landing-receipts")
+def create_landing_receipt(payload: LandingReceiptPayload) -> dict:
+    """读取流程关系导出数据包生成落地批次回执；回执必须指向通过校验的完整导出版本。"""
+    receipt, message, error_code = service.create_landing_receipt(payload.package_id)
+    return {"ok": error_code is None, "message": message, "error_code": error_code, "receipt": receipt}
+
+
+@router.get("/landing-receipts/{receipt_id}/diff")
+def landing_receipt_diff(receipt_id: str) -> dict:
+    """顺着存储落地的数据流，定位落地批次回执与流程关系导出数据包的差异。"""
+    diff, error_code = service.landing_receipt_diff(receipt_id)
+    if diff is None:
+        raise HTTPException(status_code=404, detail=f"落地批次回执 {receipt_id} 不存在")
+    return diff
 
 
 @router.get("/{entry_id}", response_model=dict)
